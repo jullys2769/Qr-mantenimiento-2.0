@@ -1,0 +1,11 @@
+flask
+qrcode
+pillow
+reportlab
+gunicorn
+google-api-python-client
+google-auth
+google-auth-httplib2
+google-auth-oauthlib
+
+Fix requirements and add gunicorn
