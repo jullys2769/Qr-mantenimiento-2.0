@@ -169,7 +169,6 @@ def descargar_reporte():
 # INICIAR SERVIDOR
 # ===============================
 
-import webview
 import threading
 
 from flask import Flask
