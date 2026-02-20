@@ -178,7 +178,7 @@ app = Flask(__name__)
 # tus rutas
 @app.route("/")
 def home():
-    return "OK"
+    return "Servidor activo 🚀 Usa /scan para escanear el QR"
 
 def iniciar_servidor():
     app.run(host="127.0.0.1", port=PORT, debug=False)
