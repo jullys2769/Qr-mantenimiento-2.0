@@ -26,7 +26,7 @@ LOGO_FILE = "logo.png"
 PDF_FILE = "reporte_qr.pdf"
 DB_FILE = "registros.db"
 
-START_DATE = datetime(2026, 2, 17)
+START_DATE = datetime(2026, 2, 25)
 DAYS_VALID = 7
 
 # ===============================
