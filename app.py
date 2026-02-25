@@ -2,8 +2,8 @@ from flask import Flask, redirect, send_file
 import qrcode
 from PIL import Image
 import os
-from datetime import datetime, timedelta
-import sqlite3
+from datetime import datetime, timedelta, timezone
+import psycopg2
 
 # PDF
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table
@@ -18,47 +18,48 @@ app = Flask(__name__)
 # ===============================
 
 GOOGLE_FORM_URL = "https://forms.gle/YPTJc1tGF3ZJ1gNK9"
-SERVER_IP = "192.168.100.197"
-PORT = 5000
+
+# URL pública de Render (cámbiala por la tuya)
+PUBLIC_URL = os.environ.get("PUBLIC_URL", "https://TU-APP.onrender.com")
 
 QR_FILE = "qr_maquina.png"
 LOGO_FILE = "logo.png"
 PDF_FILE = "reporte_qr.pdf"
-DB_FILE = "registros.db"
 
-START_DATE = datetime(2026, 2, 25)
+DATABASE_URL = os.environ.get("DATABASE_URL")
+
+START_DATE = datetime(2026, 2, 25, tzinfo=timezone.utc)
 DAYS_VALID = 7
 
 # ===============================
-# BASE DE DATOS
+# BASE DE DATOS (PostgreSQL)
 # ===============================
 
-def crear_base_datos():
-    conn = sqlite3.connect(DB_FILE)
-    cursor = conn.cursor()
+def get_conn():
+    return psycopg2.connect(DATABASE_URL)
 
+def crear_base_datos():
+    conn = get_conn()
+    cursor = conn.cursor()
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS registros (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            fecha TEXT,
+            id SERIAL PRIMARY KEY,
+            fecha TIMESTAMP,
             estado TEXT
         )
     """)
-
     conn.commit()
     conn.close()
 
 crear_base_datos()
 
 def guardar_registro(estado):
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_conn()
     cursor = conn.cursor()
-
-    fecha = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-
-    cursor.execute("INSERT INTO registros (fecha, estado) VALUES (?, ?)",
-                   (fecha, estado))
-
+    cursor.execute(
+        "INSERT INTO registros (fecha, estado) VALUES (%s, %s)",
+        (datetime.now(timezone.utc), estado)
+    )
     conn.commit()
     conn.close()
 
@@ -67,7 +68,7 @@ def guardar_registro(estado):
 # ===============================
 
 def generar_qr():
-    url = f"http://{SERVER_IP}:{PORT}/formulario"
+    url = f"{PUBLIC_URL}/formulario"
 
     qr = qrcode.QRCode(
         error_correction=qrcode.constants.ERROR_CORRECT_H,
@@ -86,9 +87,7 @@ def generar_qr():
     logo_size = int(qr_width * 0.25)
     logo = logo.resize((logo_size, logo_size), Image.LANCZOS)
 
-    pos = ((qr_width - logo_size) // 2,
-           (qr_height - logo_size) // 2)
-
+    pos = ((qr_width - logo_size) // 2, (qr_height - logo_size) // 2)
     qr_img.paste(logo, pos, mask=logo if logo.mode == "RGBA" else None)
 
     qr_img.save(QR_FILE)
@@ -97,22 +96,22 @@ if not os.path.exists(QR_FILE):
     generar_qr()
 
 # ===============================
-# VALIDACIÓN DE TIEMPO
+# VALIDACIÓN DE TIEMPO (UTC)
 # ===============================
 
 def qr_activo():
-    hoy = datetime.now()
+    ahora = datetime.now(timezone.utc)
     fecha_expiracion = START_DATE + timedelta(days=DAYS_VALID)
-    return START_DATE <= hoy < fecha_expiracion
+    return START_DATE <= ahora < fecha_expiracion
 
 # ===============================
 # GENERAR PDF
 # ===============================
 
 def generar_pdf():
-    conn = sqlite3.connect(DB_FILE)
+    conn = get_conn()
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM registros")
+    cursor.execute("SELECT id, fecha, estado FROM registros ORDER BY id DESC")
     datos = cursor.fetchall()
     conn.close()
 
@@ -123,10 +122,9 @@ def generar_pdf():
     elementos.append(Paragraph("Reporte de Registros QR", styles["Title"]))
     elementos.append(Spacer(1, 12))
 
-    tabla_datos = [["ID", "Fecha", "Estado"]]
-
+    tabla_datos = [["ID", "Fecha (UTC)", "Estado"]]
     for fila in datos:
-        tabla_datos.append(list(fila))
+        tabla_datos.append([str(fila[0]), str(fila[1]), fila[2]])
 
     tabla = Table(tabla_datos)
     tabla.setStyle([
@@ -140,6 +138,10 @@ def generar_pdf():
 # ===============================
 # RUTAS
 # ===============================
+
+@app.route("/")
+def home():
+    return "Servidor activo 🚀 Usa /qr para ver el QR"
 
 @app.route("/formulario")
 def formulario():
@@ -159,34 +161,5 @@ def mostrar_qr():
 
 @app.route("/reporte")
 def descargar_reporte():
-    try:
-        generar_pdf()
-        return send_file(PDF_FILE, as_attachment=True)
-    except Exception as e:
-        return f"Error al generar/descargar PDF: {e}"
-
-# ===============================
-# INICIAR SERVIDOR
-# ===============================
-
-import threading
-
-from flask import Flask
-
-app = Flask(__name__)
-
-# tus rutas
-@app.route("/")
-def home():
-    return "Servidor activo 🚀 Usa /scan para escanear el QR"
-
-def iniciar_servidor():
-    app.run(host="127.0.0.1", port=PORT, debug=False)
-
-#if __name__ == "__main__":
-    #hilo = threading.Thread(target=iniciar_servidor)
-    #hilo.daemon = True
-    #hilo.start()
-
-    webview.create_window("Sistema Control QR", f"http://127.0.0.1:{PORT}")
-    webview.start()
+    generar_pdf()
+    return send_file(PDF_FILE, as_attachment=True)
