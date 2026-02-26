@@ -20,7 +20,7 @@ app = Flask(__name__)
 GOOGLE_FORM_URL = "https://forms.gle/YPTJc1tGF3ZJ1gNK9"
 
 # URL pública de Render (cámbiala por la tuya)
-PUBLIC_URL = os.environ.get("PUBLIC_URL", "https://TU-APP.onrender.com")
+PUBLIC_URL = os.environ.get("PUBLIC_URL", "https://qr-mantenimiento-2-0.onrender.com")
 
 QR_FILE = "qr_maquina.png"
 LOGO_FILE = "logo.png"
