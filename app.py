@@ -151,8 +151,7 @@ def formulario():
     else:
         guardar_registro("INACTIVO")
         return """
-        <h1>⛔ QR deshabilitado</h1>
-        <p>Mantenimiento realizado.</p>
+       "<h1>PRUEBA RENDER FUNCIONANDO</h1>"
         """
 
 @app.route("/qr")
