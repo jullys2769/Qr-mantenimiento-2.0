@@ -28,7 +28,7 @@ PDF_FILE = "reporte_qr.pdf"
 
 DATABASE_URL = os.environ.get("DATABASE_URL")
 
-START_DATE = datetime(2026, 2, 25, tzinfo=timezone.utc)
+START_DATE = datetime.now() - timedelta(days=1)
 DAYS_VALID = 7
 
 # ===============================
